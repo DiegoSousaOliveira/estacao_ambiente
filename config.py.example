@@ -1,0 +1,12 @@
+# Copie este arquivo para config.py, preencha com a sua rede e envie para a placa.
+# Outra opção: configure pelo app do computador (app_pc), que grava este arquivo
+# direto na placa. O config.py está no .gitignore para a senha nunca ir para o Git.
+#
+# Atenção: o Pico W só enxerga redes de 2,4 GHz (não funciona em 5 GHz).
+
+WIFI_SSID = "nome-da-rede"
+WIFI_SENHA = "senha-da-rede"
+
+# Fuso horário em horas em relação ao UTC (Brasília = -3).
+# Reservado para quando a placa acertar o relógio pela internet; hoje não é usado.
+FUSO_HORARIO = -3

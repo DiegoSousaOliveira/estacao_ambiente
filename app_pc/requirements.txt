@@ -1,0 +1,2 @@
+# Dependências do app de computador (o tkinter já vem com o Python)
+pyserial>=3.5

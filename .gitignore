@@ -1,0 +1,7 @@
+# Credenciais do Wi-Fi: cada um cria o seu a partir do config.py.example
+# (ou deixa a placa criar, pelo app do computador)
+config.py
+
+# Arquivos gerados pelo Python e pelo editor
+__pycache__/
+.mypy_cache/

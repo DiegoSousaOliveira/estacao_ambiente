@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estação Ambiente</title>
+<!-- DM Sans vem da internet sem bloquear a página (media="print" + onload).
+     Sem internet, o navegador usa a fonte do sistema e a página abre na hora. -->
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --fundo: #0F172A; --cartao: #1E293B; --linha: #334155;
+    --texto: #F1F5F9; --texto2: #94A3B8;
+    --temp: #FB923C; --umid: #38BDF8; --conforto: #2DD4BF; --erro: #F87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fundo); color: var(--texto);
+    font-family: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .pagina { max-width: 960px; margin: 0 auto; padding: 20px 16px 32px; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+           justify-content: space-between; margin-bottom: 16px; }
+  h1 { font-size: 24px; margin: 0; }
+  .sub { color: var(--texto2); margin: 2px 0 0; font-size: 14px; }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--texto2); font-size: 14px; }
+  .ponto { width: 10px; height: 10px; border-radius: 50%; background: var(--texto2); }
+  .ao-vivo .ponto { background: var(--conforto); box-shadow: 0 0 0 4px rgba(45,212,191,.15); }
+  .sem-resposta .ponto { background: var(--erro); }
+  .sem-resposta { color: var(--erro); }
+
+  .grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .cartao { background: var(--cartao); border-radius: 16px; padding: 18px 20px; transition: opacity .3s; }
+  .largo { grid-column: 1 / -1; }
+  .apagado .cartao { opacity: .55; }
+  h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+       color: var(--texto2); margin: 0 0 6px; font-weight: 700; }
+  .valor { font-size: 44px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .valor small { font-size: 22px; font-weight: 500; margin-left: 4px; }
+  #c-temp .valor { color: var(--temp); }
+  #c-umid .valor { color: var(--umid); }
+  .faixa { margin: 6px 0 2px; font-weight: 500; }
+  .sec { color: var(--texto2); margin: 0; font-size: 14px; }
+  .sec span { white-space: nowrap; }  /* quebra só entre "mín" e "máx", nunca no meio */
+  .destaque { color: var(--conforto); font-size: 20px; font-weight: 700; margin: 2px 0 10px; }
+  .numeros { display: flex; flex-wrap: wrap; gap: 8px 32px; margin: 0; }
+  .numeros dt { color: var(--texto2); font-size: 13px; }
+  .numeros dd { margin: 0; font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .alarme { margin: 12px 0 0; font-size: 14px; color: var(--texto2); }
+  .alarme.tocando { color: var(--temp); font-weight: 500; }
+
+  .grafico { position: relative; margin-top: 14px; }
+  .grafico + .grafico { margin-top: 22px; }
+  .cabeca { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; }
+  .cabeca b { font-weight: 500; }
+  .marca { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 8px; vertical-align: middle; }
+  svg { display: block; width: 100%; height: 130px; touch-action: pan-y; }
+  svg text { fill: var(--texto2); font-size: 11px; font-family: inherit; }
+  .dica { position: absolute; pointer-events: none; background: var(--fundo); border: 1px solid var(--linha);
+          border-radius: 8px; padding: 4px 8px; font-size: 13px; white-space: nowrap; display: none;
+          transform: translate(-50%, -110%); font-variant-numeric: tabular-nums; }
+  details { margin-top: 16px; color: var(--texto2); font-size: 14px; }
+  summary { cursor: pointer; }
+  table { border-collapse: collapse; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  td, th { padding: 4px 16px 4px 0; text-align: left; border-bottom: 1px solid var(--linha); }
+  th { font-weight: 500; }
+  footer { color: var(--texto2); font-size: 13px; margin-top: 18px; text-align: center; }
+  @media (max-width: 520px) {
+    .valor { font-size: 34px; } .valor small { font-size: 18px; }
+    .cartao { padding: 16px; } h1 { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="pagina">
+  <header>
+    <div>
+      <h1>Estação Ambiente</h1>
+      <p class="sub">BitDogLab · sensor AHT10</p>
+    </div>
+    <div class="status" id="status"><span class="ponto"></span><span id="status-texto">conectando…</span></div>
+  </header>
+
+  <main class="grade" id="grade">
+    <section class="cartao" id="c-temp">
+      <h2>Temperatura</h2>
+      <div class="valor"><span id="t">--</span><small>°C</small></div>
+      <p class="faixa" id="ft">&nbsp;</p>
+      <p class="sec" id="t-ext">&nbsp;</p>
+    </section>
+    <section class="cartao" id="c-umid">
+      <h2>Umidade</h2>
+      <div class="valor"><span id="u">--</span><small>%</small></div>
+      <p class="faixa" id="fu">&nbsp;</p>
+      <p class="sec" id="u-ext">&nbsp;</p>
+    </section>
+
+    <section class="cartao largo">
+      <h2>Conforto</h2>
+      <p class="destaque" id="conforto">--</p>
+      <dl class="numeros">
+        <div><dt>Sensação térmica</dt><dd id="st">--</dd></div>
+        <div><dt>Ponto de orvalho</dt><dd id="po">--</dd></div>
+      </dl>
+      <p class="alarme" id="alarme">&nbsp;</p>
+    </section>
+
+    <section class="cartao largo">
+      <h2 id="titulo-graficos">Últimas leituras</h2>
+      <div class="grafico" id="g-temp">
+        <div class="cabeca"><span><i class="marca" style="background:var(--temp)"></i>Temperatura (°C)</span><b id="g-temp-agora"></b></div>
+        <svg role="img" aria-label="Gráfico da temperatura"></svg><div class="dica"></div>
+      </div>
+      <div class="grafico" id="g-umid">
+        <div class="cabeca"><span><i class="marca" style="background:var(--umid)"></i>Umidade (%)</span><b id="g-umid-agora"></b></div>
+        <svg role="img" aria-label="Gráfico da umidade"></svg><div class="dica"></div>
+      </div>
+      <details>
+        <summary>Ver os valores em tabela</summary>
+        <table><thead><tr><th>Quando</th><th>Temperatura</th><th>Umidade</th></tr></thead>
+        <tbody id="tabela"></tbody></table>
+      </details>
+    </section>
+  </main>
+
+  <footer id="rodape">&nbsp;</footer>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Configuração
+// ---------------------------------------------------------------------------
+const INTERVALO_MS = 5000;   // de quanto em quanto tempo busca dados novos
+const TEMPO_LIMITE_MS = 4000; // pedido sem resposta nesse tempo = falhou
+const COR = { temp: "#FB923C", umid: "#38BDF8", linha: "#334155", cartao: "#1E293B" };
+const FAIXAS_TEMP = { "FRIO": "Frio", "CONFORTAVEL": "Confortável", "QUENTE": "Quente", "MUITO QUENTE": "Muito quente" };
+const FAIXAS_UMID = { "BAIXA": "baixa", "MODERADA": "moderada", "IDEAL": "ideal", "ALTA": "alta" };
+
+let ultimo = null;          // últimos dados recebidos
+let recebidoEm = 0;         // quando chegaram (ms)
+let falhou = false;
+
+const $ = (id) => document.getElementById(id);
+// 33.25 -> "33,3" (vírgula decimal, como se escreve no Brasil)
+const num = (v, casas = 1) => v == null ? "--" :
+  v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
+
+function tempoLigado(s) {
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600),
+        m = Math.floor(s % 3600 / 60), seg = s % 60, p = (n) => String(n).padStart(2, "0");
+  return (d ? d + "d " : "") + p(h) + ":" + p(m) + ":" + p(seg);
+}
+
+function haQuanto(segundos) {
+  if (segundos < 1.5) return "agora";
+  if (segundos < 60) return "há " + Math.round(segundos) + " s";
+  return "há " + (segundos / 60).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " min";
+}
+
+// ---------------------------------------------------------------------------
+// Busca os dados na placa
+// ---------------------------------------------------------------------------
+async function atualizar() {
+  const controle = new AbortController();
+  const relogio = setTimeout(() => controle.abort(), TEMPO_LIMITE_MS);
+  try {
+    const resposta = await fetch("/api/leituras", { cache: "no-store", signal: controle.signal });
+    ultimo = await resposta.json();
+    recebidoEm = Date.now();
+    falhou = false;
+    mostrar(ultimo);
+  } catch (erro) {
+    falhou = true;
+  } finally {
+    clearTimeout(relogio);
+    mostrarStatus();
+    setTimeout(atualizar, INTERVALO_MS);
+  }
+}
+
+function mostrarStatus() {
+  const s = $("status");
+  const segundos = (Date.now() - recebidoEm) / 1000;
+  s.className = "status " + (falhou ? "sem-resposta" : ultimo ? "ao-vivo" : "");
+  $("grade").classList.toggle("apagado", falhou);
+  $("status-texto").textContent = falhou ? "sem resposta da placa" :
+    ultimo ? "ao vivo · atualizado " + haQuanto(segundos) : "conectando…";
+}
+setInterval(mostrarStatus, 1000);
+
+// ---------------------------------------------------------------------------
+// Cartões
+// ---------------------------------------------------------------------------
+function mostrar(d) {
+  const ok = d.ok;
+  $("t").textContent = ok ? num(d.t) : "--";
+  $("u").textContent = ok ? num(d.u, 0) : "--";
+  $("ft").textContent = ok ? FAIXAS_TEMP[d.ft] || d.ft : "Sensor sem leitura";
+  $("fu").textContent = ok ? "Umidade " + (FAIXAS_UMID[d.fu] || d.fu) : "Confira o cabo do AHT10";
+  $("t-ext").innerHTML = "<span>mín " + num(d.tmin) + "</span> · <span>máx " + num(d.tmax) + " °C</span>";
+  $("u-ext").innerHTML = "<span>mín " + num(d.umin, 0) + "</span> · <span>máx " + num(d.umax, 0) + " %</span>";
+  $("conforto").textContent = ok ? (FAIXAS_TEMP[d.ft] || d.ft) + " · umidade " + (FAIXAS_UMID[d.fu] || d.fu) : "Sem leitura do sensor";
+  $("st").textContent = ok ? num(d.st) + " °C" : "--";
+  $("po").textContent = ok ? num(d.po) + " °C" : "--";
+
+  const alarme = $("alarme");
+  alarme.className = "alarme" + (d.alarme === "tocando" ? " tocando" : "");
+  alarme.textContent = d.alarme === "tocando" ? "⚠ Alarme de calor tocando — aperte B na placa para silenciar" :
+    d.alarme === "silenciado" ? "Alarme de calor silenciado — aperte B na placa para voltar a tocar" :
+    "Alarme de calor desligado (dispara acima de 32 °C)";
+
+  $("rodape").textContent = "Placa " + (d.ip || "--") + (d.rede ? " · rede " + d.rede : "") +
+    " · ligada há " + tempoLigado(d.ligado) + " · atualiza a cada " + INTERVALO_MS / 1000 + " s";
+
+  const minutos = Math.round((d.hist_t.length - 1) * d.intervalo / 60);
+  $("titulo-graficos").textContent = minutos >= 1 ? "Últimos " + minutos + " min" : "Últimas leituras";
+  grafico("g-temp", d.hist_t, d.intervalo, COR.temp, 1, 1.0, "°C");
+  grafico("g-umid", d.hist_u, d.intervalo, COR.umid, 0, 4, "%");
+  $("g-temp-agora").textContent = d.hist_t.length ? num(d.hist_t.at(-1)) + " °C" : "";
+  $("g-umid-agora").textContent = d.hist_u.length ? num(d.hist_u.at(-1), 0) + " %" : "";
+  tabela(d);
+}
+
+function tabela(d) {
+  // As 10 leituras mais recentes, da mais nova para a mais velha
+  const linhas = [];
+  for (let i = d.hist_t.length - 1, k = 0; i >= 0 && k < 10; i--, k++) {
+    const atras = (d.hist_t.length - 1 - i) * d.intervalo;
+    linhas.push("<tr><td>" + (atras ? haQuanto(atras) : "agora") + "</td><td>" + num(d.hist_t[i]) +
+                " °C</td><td>" + num(d.hist_u[i], 0) + " %</td></tr>");
+  }
+  $("tabela").innerHTML = linhas.join("");
+}
+
+// ---------------------------------------------------------------------------
+// Gráfico de linha em SVG, desenhado à mão (sem biblioteca)
+// Um gráfico por medida: temperatura e umidade têm escalas diferentes, e
+// dois eixos no mesmo gráfico confundem quem lê.
+// ---------------------------------------------------------------------------
+const NS = "http://www.w3.org/2000/svg";
+const MARGEM = { esq: 40, dir: 10, topo: 8, base: 20 };
+
+function el(nome, atributos, pai) {
+  const e = document.createElementNS(NS, nome);
+  for (const k in atributos) e.setAttribute(k, atributos[k]);
+  if (pai) pai.appendChild(e);
+  return e;
+}
+
+function grafico(id, valores, intervalo, cor, casas, amplitudeMinima, unidade) {
+  const caixa = $(id), svg = caixa.querySelector("svg"), dica = caixa.querySelector(".dica");
+  const L = svg.clientWidth, A = svg.clientHeight;
+  svg.setAttribute("viewBox", "0 0 " + L + " " + A);
+  svg.innerHTML = "";
+  if (valores.length < 2) {
+    el("text", { x: L / 2, y: A / 2, "text-anchor": "middle" }, svg).textContent = "coletando leituras…";
+    return;
+  }
+
+  // Escala automática, com amplitude mínima: sem ela, um ruído de 0,02 °C
+  // ocuparia o gráfico inteiro e pareceria uma grande variação.
+  let menor = Math.min(...valores), maior = Math.max(...valores);
+  if (maior - menor < amplitudeMinima) {
+    const meio = (maior + menor) / 2;
+    menor = meio - amplitudeMinima / 2; maior = meio + amplitudeMinima / 2;
+  }
+  const folga = (maior - menor) * 0.1;
+  menor -= folga; maior += folga;
+
+  const largura = L - MARGEM.esq - MARGEM.dir, altura = A - MARGEM.topo - MARGEM.base;
+  const n = valores.length;
+  const x = (i) => MARGEM.esq + (i / (n - 1)) * largura;
+  const y = (v) => MARGEM.topo + (1 - (v - menor) / (maior - menor)) * altura;
+
+  // Grade: 3 linhas finas e discretas, com o valor à esquerda
+  for (const f of [0, 0.5, 1]) {
+    const v = menor + (maior - menor) * (1 - f), yy = MARGEM.topo + f * altura;
+    el("line", { x1: MARGEM.esq, x2: L - MARGEM.dir, y1: yy, y2: yy, stroke: COR.linha, "stroke-width": 1 }, svg);
+    el("text", { x: MARGEM.esq - 8, y: yy + 4, "text-anchor": "end" }, svg).textContent = num(v, casas);
+  }
+  // Eixo do tempo: só o começo e o "agora"
+  const total = (n - 1) * intervalo;
+  el("text", { x: MARGEM.esq, y: A - 4 }, svg).textContent = "−" + (total >= 60 ? num(total / 60, 0) + " min" : total + " s");
+  el("text", { x: L - MARGEM.dir, y: A - 4, "text-anchor": "end" }, svg).textContent = "agora";
+
+  // Área bem clarinha embaixo da linha + a linha de 2 px
+  let caminho = "";
+  valores.forEach((v, i) => caminho += (i ? "L" : "M") + x(i).toFixed(1) + "," + y(v).toFixed(1));
+  el("path", { d: caminho + "L" + x(n - 1) + "," + (MARGEM.topo + altura) + "L" + x(0) + "," + (MARGEM.topo + altura) + "Z",
+               fill: cor, "fill-opacity": 0.1 }, svg);
+  el("path", { d: caminho, fill: "none", stroke: cor, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+  // Ponto da leitura atual, com um anel da cor do cartão para destacar da linha
+  el("circle", { cx: x(n - 1), cy: y(valores[n - 1]), r: 4, fill: cor, stroke: COR.cartao, "stroke-width": 2 }, svg);
+
+  // Passar o dedo ou o mouse mostra o valor daquele momento
+  const mira = el("line", { y1: MARGEM.topo, y2: MARGEM.topo + altura, stroke: "#94A3B8", "stroke-width": 1, visibility: "hidden" }, svg);
+  const marca = el("circle", { r: 4, fill: cor, stroke: COR.cartao, "stroke-width": 2, visibility: "hidden" }, svg);
+  svg.onpointermove = svg.onpointerdown = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const i = Math.max(0, Math.min(n - 1, Math.round((ev.clientX - r.left - MARGEM.esq) / largura * (n - 1))));
+    const xx = x(i), yy = y(valores[i]), atras = (n - 1 - i) * intervalo;
+    mira.setAttribute("x1", xx); mira.setAttribute("x2", xx); mira.setAttribute("visibility", "visible");
+    marca.setAttribute("cx", xx); marca.setAttribute("cy", yy); marca.setAttribute("visibility", "visible");
+    dica.style.display = "block";
+    dica.style.left = Math.max(60, Math.min(L - 60, xx)) + "px";
+    dica.style.top = (svg.offsetTop + yy - 6) + "px";
+    dica.textContent = num(valores[i], casas) + " " + unidade + " · " + (atras ? haQuanto(atras) : "agora");
+  };
+  svg.onpointerleave = () => {
+    mira.setAttribute("visibility", "hidden"); marca.setAttribute("visibility", "hidden");
+    dica.style.display = "none";
+  };
+}
+
+// Ao girar o celular ou redimensionar a janela, redesenha no tamanho novo
+window.addEventListener("resize", () => ultimo && mostrar(ultimo));
+atualizar();
+</script>
+</body>
+</html>
